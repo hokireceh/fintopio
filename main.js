@@ -4,6 +4,7 @@ const axios = require("axios");
 const colors = require("colors");
 const readline = require("readline");
 const { DateTime } = require("luxon");
+require('dotenv').config(); // Load environment variables
 
 class Fintopio {
   constructor() {
@@ -20,10 +21,26 @@ class Fintopio {
       "User-Agent":
         "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36",
     };
+
+    this.telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+    this.telegramChatId = process.env.TELEGRAM_CHAT_ID;
   }
 
   log(msg, color = "white") {
     console.log(msg[color]);
+    this.sendToTelegram(msg); // Send message to Telegram
+  }
+
+  async sendToTelegram(message) {
+    const url = `https://api.telegram.org/bot${this.telegramBotToken}/sendMessage`;
+    try {
+      await axios.post(url, {
+        chat_id: this.telegramChatId,
+        text: message
+      });
+    } catch (error) {
+      console.error(`Failed to send message to Telegram: ${error.message}`);
+    }
   }
 
   async waitWithCountdown(seconds, msg = 'continue') {
@@ -250,7 +267,6 @@ class Fintopio {
   }
 
   async main() {
-
     while (true) {
       const dataFile = path.join(__dirname, "data.txt");
       const data = await fs.readFile(dataFile, "utf8");
@@ -309,10 +325,6 @@ class Fintopio {
                     finishTimestamp
                   ).toLocaleString(DateTime.DATETIME_FULL);
                   this.log(`Farming completion time: ${finishTime}`, "green");
-
-                //   if (i === 0) {
-                //     firstAccountFinishTime = finishTimestamp;
-                //   }
 
                   const currentTime = DateTime.now().toMillis();
                   if (currentTime > finishTimestamp) {
