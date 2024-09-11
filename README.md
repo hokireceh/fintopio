@@ -21,6 +21,7 @@ Join our Telegram group to stay updated and get instructions on how to use this 
 - 💰 Real-time balance tracking
 - 🌈 Colorful and informative console output
 - ⏳ Intelligent waiting system with animated countdown
+- 🦊 Log to bot telegram
 
 ## 🛠 Prerequisites
 
@@ -45,21 +46,12 @@ Follow these steps to get the Fintopio Automation Tool up and running:
    Run the following command to install all required packages:
 
    ```bash
-   npm install axios
+   npm install axios colors luxon dotenv
    ```
-   
-   ```bash
-   npm install color
-   ```
-   
-   ```bash
-   npm install luxon
-   ```
-   
 
 3. **Set up your accounts**
 
-   Edit`data.txt`. Add your Fintopio account data, one per line, in the following format:
+   Edit`data.txt & .env`. Add your Fintopio account data, one per line, in the following format & bot token id:
 
    ```
    user=
