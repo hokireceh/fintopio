@@ -61,7 +61,9 @@ data.txt use nano
   user=
   query_id=
   ```
+
 .env use nano
+
 		```
 	 TOKEN=
 		ID=
