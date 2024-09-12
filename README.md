@@ -41,7 +41,10 @@ Follow these steps to get the Fintopio Automation Tool up and running:
    cd fintopio
    ```
 
-2. **Install dependencies**
+2. **Install Node.js and npm:**
+		```bash
+		pkg install nodejs
+		```
 
    Run the following command to install all required packages:
 
