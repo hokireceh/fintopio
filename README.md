@@ -64,9 +64,9 @@ data.txt use nano
 
 .env use nano
 
-		```bash
-	 TOKEN=
-		ID=
+		```
+TOKEN=
+ID=
 		```
 
    Make sure to replace the values with your actual Fintopio account data.
