@@ -56,11 +56,11 @@ Follow these steps to get the Fintopio Automation Tool up and running:
 
    Edit`data.txt & .env`. Add your Fintopio account data, one per line, in the following format & bot token id:
 
-			```nano data.txt
-``` user/query
+			```nano data.txt``` 
+- user/query
 
-			```nano .env
-``` token bot & id
+			```nano .env``` 
+- token bot & id
 
    Make sure to replace the values with your actual Fintopio account data.
 
