@@ -1,64 +1,56 @@
-import fs from 'fs/promises';
-import path from 'path';
-import axios from 'axios';
-import colors from 'colors';
-import readline from 'readline';
-import { DateTime } from 'luxon';
-import fetch from 'node-fetch'; // Use import syntax for ESM
-import dotenv from 'dotenv';
-
-dotenv.config(); // Load environment variables from .env
+const fs = require("fs").promises;
+const path = require("path");
+const axios = require("axios");
+const colors = require("colors");
+const readline = require("readline");
+const { DateTime } = require("luxon");
+const TelegramBot = require('node-telegram-bot-api');
 
 class Fintopio {
   constructor() {
-    this.baseUrl = 'https://fintopio-tg.fintopio.com/api';
+    this.baseUrl = "https://fintopio-tg.fintopio.com/api";
     this.headers = {
-      Accept: 'application/json, text/plain, */*',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Accept-Language': 'en-US,en;q=0.9',
-      Referer: 'https://fintopio-tg.fintopio.com/',
-      'Sec-Ch-Ua': '"Not/A)Brand";v="99", "Google Chrome";v="115", "Chromium";v="115"',
-      'Sec-Ch-Ua-Mobile': '?1',
-      'Sec-Ch-Ua-Platform': '"Android"',
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36',
+      Accept: "application/json, text/plain, */*",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: "https://fintopio-tg.fintopio.com/",
+      "Sec-Ch-Ua":
+        '"Not/A)Brand";v="99", "Google Chrome";v="115", "Chromium";v="115"',
+      "Sec-Ch-Ua-Mobile": "?1",
+      "Sec-Ch-Ua-Platform": '"Android"',
+      "User-Agent":
+        "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36",
     };
-    this.telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
-    this.telegramChatId = process.env.TELEGRAM_CHAT_ID;
+    // Initialize Telegram Bot
+    this.telegramBotToken = '7156984525:AAHM0fgdYoYAVfvlOkICfDPLoi1xKQv3pas'; // Replace with your Telegram bot token
+    this.telegramChatId = '7027694923'; // Replace with your Telegram chat ID
+    this.bot = new TelegramBot(this.telegramBotToken, { polling: true });
   }
 
-  log(msg, color = 'white') {
-    console.log(msg[color]);
-    this.sendTelegramMessage(msg); // Send log to Telegram
+  async log(msg, color = "white") {
+    const coloredMsg = msg[color];
+    console.log(coloredMsg);
+    await this.logToFile(coloredMsg);
+    await this.sendLogToTelegram(coloredMsg);
   }
 
-  async sendTelegramMessage(message) {
-    if (!this.telegramBotToken || !this.telegramChatId) {
-      console.error('Telegram bot token or chat ID is missing.');
-      return;
-    }
+  async logToFile(msg) {
+    const logFile = path.join(__dirname, "logfile.log");
+    const timestamp = DateTime.now().toISO();
+    const logMessage = `[${timestamp}] ${msg}\n`;
+    await fs.appendFile(logFile, logMessage);
+  }
 
-    const url = `https://api.telegram.org/bot${this.telegramBotToken}/sendMessage`;
-    const body = {
-      chat_id: this.telegramChatId,
-      text: message,
-      parse_mode: 'Markdown', // Optional: You can use HTML or Markdown
-    };
-
+  async sendLogToTelegram(msg) {
     try {
-      await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      await this.bot.sendMessage(this.telegramChatId, msg);
     } catch (error) {
-      console.error(`Failed to send message to Telegram: ${error.message}`);
+      console.error(`Failed to send log to Telegram: ${error.message}`);
     }
   }
 
   async waitWithCountdown(seconds, msg = 'continue') {
-    const spinners = ['|', '/', '-', '\\'];
+    const spinners = ["|", "/", "-", "\\"];
     let i = 0;
     for (let s = seconds; s >= 0; s--) {
       readline.cursorTo(process.stdout, 0);
@@ -68,18 +60,18 @@ class Fintopio {
       i = (i + 1) % spinners.length;
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    console.log('');
+    console.log("");
   }
 
   async auth(userData) {
     const url = `${this.baseUrl}/auth/telegram`;
-    const headers = { ...this.headers, Webapp: 'true' };
+    const headers = { ...this.headers, Webapp: "true" };
 
     try {
       const response = await axios.get(`${url}?${userData}`, { headers });
       return response.data.token;
     } catch (error) {
-      this.log(`Authentication error: ${error.message}`, 'red');
+      await this.log(`Authentication error: ${error.message}`, "red");
       return null;
     }
   }
@@ -89,14 +81,14 @@ class Fintopio {
     const headers = {
       ...this.headers,
       Authorization: `Bearer ${token}`,
-      Webapp: 'false, true',
+      Webapp: "false, true",
     };
 
     try {
       const response = await axios.get(url, { headers });
       return response.data;
     } catch (error) {
-      this.log(`Error fetching profile: ${error.message}`, 'red');
+      await this.log(`Error fetching profile: ${error.message}`, "red");
       return null;
     }
   }
@@ -106,14 +98,14 @@ class Fintopio {
     const headers = {
       ...this.headers,
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
 
     try {
       await axios.post(url, {}, { headers });
-      this.log('Daily check-in successful!', 'green');
+      await this.log("Daily check-in successful!", "green");
     } catch (error) {
-      this.log(`Daily check-in error: ${error.message}`, 'red');
+      await this.log(`Daily check-in error: ${error.message}`, "red");
     }
   }
 
@@ -128,7 +120,7 @@ class Fintopio {
       const response = await axios.get(url, { headers });
       return response.data;
     } catch (error) {
-      this.log(`Error fetching farming state: ${error.message}`, 'red');
+      await this.log(`Error fetching farming state: ${error.message}`, "red");
       return null;
     }
   }
@@ -138,7 +130,7 @@ class Fintopio {
     const headers = {
       ...this.headers,
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
 
     try {
@@ -149,13 +141,13 @@ class Fintopio {
         const finishTime = DateTime.fromMillis(finishTimestamp).toLocaleString(
           DateTime.DATETIME_FULL
         );
-        this.log(`Starting farm...`, 'yellow');
-        this.log(`Farming completion time: ${finishTime}`, 'green');
+        await this.log(`Starting farm...`, "yellow");
+        await this.log(`Farming completion time: ${finishTime}`, "green");
       } else {
-        this.log('No completion time available.', 'yellow');
+        await this.log("No completion time available.", "yellow");
       }
     } catch (error) {
-      this.log(`Error starting farming: ${error.message}`, 'red');
+      await this.log(`Error starting farming: ${error.message}`, "red");
     }
   }
 
@@ -164,111 +156,109 @@ class Fintopio {
     const headers = {
       ...this.headers,
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
 
     try {
       await axios.post(url, {}, { headers });
-      this.log('Farm claimed successfully!', 'green');
+      await this.log("Farm claimed successfully!", "green");
     } catch (error) {
-      this.log(`Error claiming farm: ${error.message}`, 'red');
+      await this.log(`Error claiming farm: ${error.message}`, "red");
     }
   }
 
-  async getDiamondInfo(token) {
+  async getDiamondInfo(token){
     const url = `${this.baseUrl}/clicker/diamond/state`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
     };
 
     try {
-      const response = await axios.get(url, { headers });
-      return response.data;
-    } catch (error) {
-      this.log(`Error fetching diamond state: ${error.message}`, 'red');
-      return null;
+        const response = await axios.get(url, { headers });
+        return response.data;
+      } catch (error) {
+        await this.log(`Error fetching diamond state: ${error.message}`, "red");
+        return null;
     }
   }
 
   async claimDiamond(token, diamondNumber, totalReward) {
     const url = `${this.baseUrl}/clicker/diamond/complete`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
     };
-    const payload = { diamondNumber };
+    const payload = { "diamondNumber": diamondNumber };
 
     try {
-      await axios.post(url, payload, { headers });
-      this.log(`Successfully claimed ${totalReward} diamonds!`, 'green');
-    } catch (error) {
-      this.log(`Error claiming diamond: ${error.message}`, 'red');
-    }
+        await axios.post(url, payload, { headers });
+        await this.log(`Success claim ${totalReward} diamonds!`, "green");
+      } catch (error) {
+        await this.log(`Error claiming Diamond: ${error.message}`, "red");
+      }
   }
 
   async getTask(token) {
     const url = `${this.baseUrl}/hold/tasks`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
     };
 
     try {
-      const response = await axios.get(url, { headers });
-      return response.data;
-    } catch (error) {
-      this.log(`Error fetching task state: ${error.message}`, 'red');
-      return null;
+        const response = await axios.get(url, { headers });
+        return response.data;
+      } catch (error) {
+        await this.log(`Error fetching task state: ${error.message}`, "red");
+        return null;
     }
   }
 
   async startTask(token, taskId, slug) {
     const url = `${this.baseUrl}/hold/tasks/${taskId}/start`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
-      origin: 'https://fintopio-tg.fintopio.com',
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=utf-8",
+        "origin": "https://fintopio-tg.fintopio.com"
     };
-
     try {
-      await axios.post(url, {}, { headers });
-      this.log(`Starting task ${slug}!`, 'green');
-    } catch (error) {
-      this.log(`Error starting task: ${error.message}`, 'red');
+        await axios.post(url, {}, { headers });
+        await this.log(`Starting task ${slug}!`, "green");
+      } catch (error) {
+        await this.log(`Error starting task: ${error.message}`, "red");
     }
-  }
-
-  async claimTask(token, taskId, slug, rewardAmount) {
-    const url = `${this.baseUrl}/hold/tasks/${taskId}/claim`;
-    const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json; charset=utf-8',
-      origin: 'https://fintopio-tg.fintopio.com',
-    };
-
-    try {
-      await axios.post(url, {}, { headers });
-      this.log(`Task ${slug} complete, reward ${rewardAmount} diamonds!`, 'green');
-    } catch (error) {
-      this.log(`Error claiming task: ${error.message}`, 'red');
     }
-  }
+
+    async claimTask(token, taskId, slug, rewardAmount) {
+        const url = `${this.baseUrl}/hold/tasks/${taskId}/claim`;
+        const headers = {
+            ...this.headers,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8",
+            "origin": "https://fintopio-tg.fintopio.com"
+        };
+        try {
+            await axios.post(url, {}, { headers });
+            await this.log(`Task ${slug} complete, reward ${rewardAmount} diamonds!`, "green");
+          } catch (error) {
+            await this.log(`Error claiming task: ${error.message}`, "red");
+        }
+    }
 
   extractFirstName(userData) {
     try {
       const userPart = userData.match(/user=([^&]*)/)[1];
       const decodedUserPart = decodeURIComponent(userPart);
       const userObj = JSON.parse(decodedUserPart);
-      return userObj.first_name || 'Unknown';
+      return userObj.first_name || "Unknown";
     } catch (error) {
-      this.log(`Error extracting first_name: ${error.message}`, 'red');
-      return 'Unknown';
+      this.log(`Error extracting first_name: ${error.message}`, "red");
+      return "Unknown";
     }
   }
 
@@ -279,62 +269,73 @@ class Fintopio {
     const finishTime = DateTime.fromMillis(firstAccountFinishTime);
     const duration = finishTime.diff(now);
 
-    return duration.as('milliseconds');
+    return duration.as("milliseconds");
   }
 
   async main() {
+
     while (true) {
-      const dataFile = path.join(__dirname, 'data.txt');
-      const data = await fs.readFile(dataFile, 'utf8');
-      const users = data.split('\n').filter(Boolean);
+      const dataFile = path.join(__dirname, "data.txt");
+      const data = await fs.readFile(dataFile, "utf8");
+      const users = data.split("\n").filter(Boolean);
 
       let firstAccountFinishTime = null;
 
       for (let i = 0; i < users.length; i++) {
         const userData = users[i];
         const first_name = this.extractFirstName(userData);
-        console.log(
-          `${'='.repeat(5)} Account ${i + 1} | ${first_name.green} ${'='.repeat(5)}`.blue
+        await this.log(
+          `${"=".repeat(5)} Account ${i + 1} | ${first_name.green} ${"=".repeat(
+            5
+          )}`.blue
         );
         const token = await this.auth(userData);
         if (token) {
-          this.log('Login successful!', 'green');
+          await this.log(`Login successful!`, "green");
           const profile = await this.getProfile(token);
           if (profile) {
             const balance = profile.balance;
-            this.log(`Balance: ${balance}`, 'green');
+            await this.log(`Balance: ${balance}`, "green");
 
             await this.checkInDaily(token);
 
             const diamond = await this.getDiamondInfo(token);
-            if (diamond.state === 'available') {
+            if(diamond.state === 'available') {
               await this.waitWithCountdown(Math.floor(Math.random() * (21 - 10)) + 10, 'claim Diamonds');
               await this.claimDiamond(token, diamond.diamondNumber, diamond.settings.totalReward);
             } else {
-              const nextDiamondTimeStamp = diamond.timings.nextAt;
-              if (nextDiamondTimeStamp) {
-                const nextDiamondTime = DateTime.fromMillis(nextDiamondTimeStamp).toLocaleString(DateTime.DATETIME_FULL);
-                this.log(`Next Diamond time: ${nextDiamondTime}`, 'green');
+                const nextDiamondTimeStamp = diamond.timings.nextAt;
+                if(nextDiamondTimeStamp) {
+                    const nextDiamondTime = DateTime.fromMillis(
+                        nextDiamondTimeStamp
+                    ).toLocaleString(DateTime.DATETIME_FULL);
+                    await this.log(`Next Diamond time: ${nextDiamondTime}`, 'green');
 
-                if (i === 0) {
-                  firstAccountFinishTime = nextDiamondTimeStamp;
+                    if (i === 0) {
+                        firstAccountFinishTime = nextDiamondTimeStamp;
+                    }
                 }
-              }
             }
 
             const farmingState = await this.getFarmingState(token);
 
             if (farmingState) {
-              if (farmingState.state === 'idling') {
+              if (farmingState.state === "idling") {
                 await this.startFarming(token);
               } else if (
-                farmingState.state === 'farmed' ||
-                farmingState.state === 'farming'
+                farmingState.state === "farmed" ||
+                farmingState.state === "farming"
               ) {
                 const finishTimestamp = farmingState.timings.finish;
                 if (finishTimestamp) {
-                  const finishTime = DateTime.fromMillis(finishTimestamp).toLocaleString(DateTime.DATETIME_FULL);
-                  this.log(`Farming completion time: ${finishTime}`, 'green');
+                  const finishTime = DateTime.fromMillis(
+                    finishTimestamp
+                  ).toLocaleString(DateTime.DATETIME_FULL);
+                  await this.log(`Farming completion time: ${finishTime}`, "green");
+
+                //   if (i === 0) {
+                //     firstAccountFinishTime = finishTimestamp;
+                //   }
 
                   const currentTime = DateTime.now().toMillis();
                   if (currentTime > finishTimestamp) {
@@ -347,18 +348,18 @@ class Fintopio {
 
             const taskState = await this.getTask(token);
 
-            if (taskState) {
-              for (const item of taskState.tasks) {
-                if (item.status === 'available') {
-                  await this.startTask(token, item.id, item.slug);
-                } else if (item.status === 'verified') {
-                  await this.claimTask(token, item.id, item.slug, item.rewardAmount);
-                } else if (item.status === 'in-progress') {
-                  continue;
-                } else {
-                  this.log(`Verifying task ${item.slug}!`, 'green');
+            if(taskState) {
+                for (const item of taskState.tasks) {
+                    if(item.status === 'available') {
+                        await this.startTask(token, item.id, item.slug);
+                    } else if(item.status === 'verified') {
+                        await this.claimTask(token, item.id, item.slug, item.rewardAmount);
+                    } else if(item.status === 'in-progress') {
+                        continue;
+                    } else {
+                        await this.log(`Verifying task ${item.slug}!`, "green");
+                    }
                 }
-              }
             }
           }
         }
@@ -368,17 +369,19 @@ class Fintopio {
       if (waitTime && waitTime > 0) {
         await this.waitWithCountdown(Math.floor(waitTime / 1000));
       } else {
-        this.log('No valid wait time, continuing loop immediately.', 'yellow');
+        await this.log("No valid wait time, continuing loop immediately.", "yellow");
         await this.waitWithCountdown(5);
       }
     }
   }
 }
 
-if (import.meta.url === `file://${path.resolve('index.js')}`) {
+if (require.main === module) {
   const fintopio = new Fintopio();
   fintopio.main().catch((err) => {
     console.error(err);
     process.exit(1);
   });
 }
+
+membersihkan kode warna ANSI dari pesan sebelum mengirim ke Telegram
