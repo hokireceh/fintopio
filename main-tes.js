@@ -22,16 +22,21 @@ class Fintopio {
         "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Mobile Safari/537.36",
     };
     // Initialize Telegram Bot
-    this.telegramBotToken = '7156984525:AAHM0fgdYoYAVfvlOkICfDPLoi1xKQv3pas'; // Replace with your Telegram bot token
-    this.telegramChatId = '7027694923'; // Replace with your Telegram chat ID
+    this.telegramBotToken = 'YOUR_TELEGRAM_BOT_TOKEN'; // Replace with your Telegram bot token
+    this.telegramChatId = 'YOUR_TELEGRAM_CHAT_ID'; // Replace with your Telegram chat ID
     this.bot = new TelegramBot(this.telegramBotToken, { polling: true });
+  }
+
+  removeAnsiColors(msg) {
+    return msg.replace(/\x1b\[.*?m/g, ''); // Regular expression to remove ANSI color codes
   }
 
   async log(msg, color = "white") {
     const coloredMsg = msg[color];
-    console.log(coloredMsg);
-    await this.logToFile(coloredMsg);
-    await this.sendLogToTelegram(coloredMsg);
+    const cleanMsg = this.removeAnsiColors(coloredMsg);
+    console.log(cleanMsg);
+    await this.logToFile(cleanMsg);
+    await this.sendLogToTelegram(cleanMsg);
   }
 
   async logToFile(msg) {
@@ -333,10 +338,6 @@ class Fintopio {
                   ).toLocaleString(DateTime.DATETIME_FULL);
                   await this.log(`Farming completion time: ${finishTime}`, "green");
 
-                //   if (i === 0) {
-                //     firstAccountFinishTime = finishTimestamp;
-                //   }
-
                   const currentTime = DateTime.now().toMillis();
                   if (currentTime > finishTimestamp) {
                     await this.claimFarming(token);
@@ -383,5 +384,3 @@ if (require.main === module) {
     process.exit(1);
   });
 }
-
-membersihkan kode warna ANSI dari pesan sebelum mengirim ke Telegram
