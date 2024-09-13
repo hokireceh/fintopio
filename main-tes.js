@@ -1,10 +1,15 @@
+require('dotenv').config(); // Load environment variables
+const TelegramBot = require('node-telegram-bot-api');
 const fs = require("fs").promises;
 const path = require("path");
 const axios = require("axios");
 const colors = require("colors");
 const readline = require("readline");
 const { DateTime } = require("luxon");
-require('dotenv').config(); // Memuat variabel lingkungan dari .env
+
+const botToken = process.env.TELEGRAM_BOT_TOKEN;
+const chatId = process.env.TELEGRAM_CHAT_ID;
+const bot = new TelegramBot(botToken);
 
 class Fintopio {
   constructor() {
@@ -27,21 +32,11 @@ class Fintopio {
     console.log(msg[color]);
   }
 
-  async sendToTelegram(message) {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    const payload = {
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'HTML',
-    };
-
+  async sendTelegramLog(message) {
     try {
-      await axios.post(url, payload);
-      console.log('Pesan berhasil dikirim ke Telegram');
+      await bot.sendMessage(chatId, message);
     } catch (error) {
-      console.error('Error mengirim pesan ke Telegram:', error.response ? error.response.data : error.message);
+      this.log(`Failed to send Telegram message: ${error.message}`, "red");
     }
   }
 
@@ -65,11 +60,8 @@ class Fintopio {
 
     try {
       const response = await axios.get(`${url}?${userData}`, { headers });
-      const token = response.data.token;
-      await this.sendToTelegram(`Login berhasil untuk ${userData}`);
-      return token;
+      return response.data.token;
     } catch (error) {
-      await this.sendToTelegram(`Error autentikasi: ${error.message}`);
       this.log(`Authentication error: ${error.message}`, "red");
       return null;
     }
@@ -87,7 +79,6 @@ class Fintopio {
       const response = await axios.get(url, { headers });
       return response.data;
     } catch (error) {
-      await this.sendToTelegram(`Error fetching profile: ${error.message}`);
       this.log(`Error fetching profile: ${error.message}`, "red");
       return null;
     }
@@ -103,11 +94,11 @@ class Fintopio {
 
     try {
       await axios.post(url, {}, { headers });
-      await this.sendToTelegram(`Daily check-in successful!`);
       this.log("Daily check-in successful!", "green");
+      await this.sendTelegramLog("Daily check-in successful!");
     } catch (error) {
-      await this.sendToTelegram(`Daily check-in error: ${error.message}`);
       this.log(`Daily check-in error: ${error.message}`, "red");
+      await this.sendTelegramLog(`Daily check-in error: ${error.message}`);
     }
   }
 
@@ -122,7 +113,6 @@ class Fintopio {
       const response = await axios.get(url, { headers });
       return response.data;
     } catch (error) {
-      await this.sendToTelegram(`Error fetching farming state: ${error.message}`);
       this.log(`Error fetching farming state: ${error.message}`, "red");
       return null;
     }
@@ -144,16 +134,16 @@ class Fintopio {
         const finishTime = DateTime.fromMillis(finishTimestamp).toLocaleString(
           DateTime.DATETIME_FULL
         );
-        await this.sendToTelegram(`Starting farm... Farming completion time: ${finishTime}`);
         this.log(`Starting farm...`, "yellow");
         this.log(`Farming completion time: ${finishTime}`, "green");
+        await this.sendTelegramLog(`Starting farm... Farming completion time: ${finishTime}`);
       } else {
-        await this.sendToTelegram(`No completion time available.`);
         this.log("No completion time available.", "yellow");
+        await this.sendTelegramLog("No completion time available.");
       }
     } catch (error) {
-      await this.sendToTelegram(`Error starting farming: ${error.message}`);
       this.log(`Error starting farming: ${error.message}`, "red");
+      await this.sendTelegramLog(`Error starting farming: ${error.message}`);
     }
   }
 
@@ -167,149 +157,235 @@ class Fintopio {
 
     try {
       await axios.post(url, {}, { headers });
-      await this.sendToTelegram(`Farm claimed successfully!`);
       this.log("Farm claimed successfully!", "green");
+      await this.sendTelegramLog("Farm claimed successfully!");
     } catch (error) {
-      await this.sendToTelegram(`Error claiming farm: ${error.message}`);
       this.log(`Error claiming farm: ${error.message}`, "red");
+      await this.sendTelegramLog(`Error claiming farm: ${error.message}`);
     }
   }
 
-  async getDiamondInfo(token) {
+  async getDiamondInfo(token){
     const url = `${this.baseUrl}/clicker/diamond/state`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
     };
 
     try {
-      const response = await axios.get(url, { headers });
-      return response.data;
-    } catch (error) {
-      await this.sendToTelegram(`Error fetching diamond state: ${error.message}`);
-      this.log(`Error fetching diamond state: ${error.message}`, "red");
-      return null;
+        const response = await axios.get(url, { headers });
+        return response.data;
+      } catch (error) {
+        this.log(`Error fetching diamond state: ${error.message}`, "red");
+        await this.sendTelegramLog(`Error fetching diamond state: ${error.message}`);
+        return null;
     }
   }
 
   async claimDiamond(token, diamondNumber, totalReward) {
     const url = `${this.baseUrl}/clicker/diamond/complete`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json"
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
     };
     const payload = { "diamondNumber": diamondNumber };
 
     try {
-      await axios.post(url, payload, { headers });
-      await this.sendToTelegram(`Success claim ${totalReward} diamonds!`);
-      this.log(`Success claim ${totalReward} diamonds!`, "green");
-    } catch (error) {
-      await this.sendToTelegram(`Error claiming Diamond: ${error.message}`);
-      this.log(`Error claiming Diamond: ${error.message}`, "red");
-    }
+        await axios.post(url, payload, { headers });
+        this.log(`Success claim ${totalReward} diamonds!`, "green");
+        await this.sendTelegramLog(`Success claim ${totalReward} diamonds!`);
+      } catch (error) {
+        this.log(`Error claiming Diamond: ${error.message}`, "red");
+        await this.sendTelegramLog(`Error claiming Diamond: ${error.message}`);
+      }
   }
 
   async getTask(token) {
     const url = `${this.baseUrl}/hold/tasks`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
     };
 
     try {
-      const response = await axios.get(url, { headers });
-      return response.data;
-    } catch (error) {
-      await this.sendToTelegram(`Error fetching task state: ${error.message}`);
-      this.log(`Error fetching task state: ${error.message}`, "red");
-      return null;
+        const response = await axios.get(url, { headers });
+        return response.data;
+      } catch (error) {
+        this.log(`Error fetching task state: ${error.message}`, "red");
+        await this.sendTelegramLog(`Error fetching task state: ${error.message}`);
+        return null;
     }
   }
 
   async startTask(token, taskId, slug) {
     const url = `${this.baseUrl}/hold/tasks/${taskId}/start`;
     const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json; charset=utf-8",
-      "origin": "https://fintopio-tg.fintopio.com"
+        ...this.headers,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=utf-8",
+        "origin": "https://fintopio-tg.fintopio.com"
     };
     try {
-      await axios.post(url, {}, { headers });
-      await this.sendToTelegram(`Starting task ${slug}!`);
-      this.log(`Starting task ${slug}!`, "green");
+        await axios.post(url, {}, { headers });
+        this.log(`Starting task ${slug}!`, "green");
+        await this.sendTelegramLog(`Starting task ${slug}!`);
+      } catch (error) {
+        this.log(`Error starting task: ${error.message}`, "red");
+        await this.sendTelegramLog(`Error starting task: ${error.message}`);
+    }
+    }
+
+    async claimTask(token, taskId, slug, rewardAmount) {
+        const url = `${this.baseUrl}/hold/tasks/${taskId}/claim`;
+        const headers = {
+            ...this.headers,
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json; charset=utf-8",
+            "origin": "https://fintopio-tg.fintopio.com"
+        };
+        try {
+            await axios.post(url, {}, { headers });
+            this.log(`Task ${slug} complete, reward ${rewardAmount} diamonds!`, "green");
+            await this.sendTelegramLog(`Task ${slug} complete, reward ${rewardAmount} diamonds!`);
+          } catch (error) {
+            this.log(`Error claiming task: ${error.message}`, "red");
+            await this.sendTelegramLog(`Error claiming task: ${error.message}`);
+        }
+    }
+
+  extractFirstName(userData) {
+    try {
+      const userPart = userData.match(/user=([^&]*)/)[1];
+      const decodedUserPart = decodeURIComponent(userPart);
+      const userObj = JSON.parse(decodedUserPart);
+      return userObj.first_name || "Unknown";
     } catch (error) {
-      await this.sendToTelegram(`Error starting task: ${error.message}`);
-      this.log(`Error starting task: ${error.message}`, "red");
+      this.log(`Error extracting first_name: ${error.message}`, "red");
+      return "Unknown";
     }
   }
 
-  async claimTask(token, taskId, slug, rewardAmount) {
-    const url = `${this.baseUrl}/hold/tasks/${taskId}/claim`;
-    const headers = {
-      ...this.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json; charset=utf-8",
-      "origin": "https://fintopio-tg.fintopio.com"
-    };
+  calculateWaitTime(firstAccountFinishTime) {
+    if (!firstAccountFinishTime) return null;
 
-    try {
-      await axios.post(url, {}, { headers });
-      await this.sendToTelegram(`Claiming task ${slug} of ${rewardAmount} successfully!`);
-      this.log(`Claiming task ${slug} of ${rewardAmount} successfully!`, "green");
-    } catch (error) {
-      await this.sendToTelegram(`Error claiming task: ${error.message}`);
-      this.log(`Error claiming task: ${error.message}`, "red");
-    }
+    const now = DateTime.now();
+    const finishTime = DateTime.fromMillis(firstAccountFinishTime);
+    const duration = finishTime.diff(now);
+
+    return duration.as("milliseconds");
   }
 
   async main() {
-    await this.sendToTelegram('Ini adalah pesan test dari Fintopio');
 
-    // Ambil data login, misalnya dari file atau input pengguna
-    const userData = "example=user&data=test"; // Ganti sesuai kebutuhan
+    while (true) {
+      const dataFile = path.join(__dirname, "data.txt");
+      const data = await fs.readFile(dataFile, "utf8");
+      const users = data.split("\n").filter(Boolean);
 
-    // Autentikasi
-    const token = await this.auth(userData);
-    if (!token) return;
+      let firstAccountFinishTime = null;
 
-    // Ambil profil
-    const profile = await this.getProfile(token);
-    if (!profile) return;
+      for (let i = 0; i < users.length; i++) {
+        const userData = users[i];
+        const first_name = this.extractFirstName(userData);
+        console.log(
+          `${"=".repeat(5)} Account ${i + 1} | ${first_name.green} ${"=".repeat(
+            5
+          )}`.blue
+        );
+        const token = await this.auth(userData);
+        if (token) {
+          this.log(`Login successful!`, "green");
+          await this.sendTelegramLog(`Login successful!`);
 
-    // Periksa dan lakukan check-in harian
-    await this.checkInDaily(token);
+          const profile = await this.getProfile(token);
+          if (profile) {
+            const balance = profile.balance;
+            this.log(`Balance: ${balance}`, "green");
+            await this.sendTelegramLog(`Balance: ${balance}`);
 
-    // Periksa status farming dan lakukan farming
-    const farmingState = await this.getFarmingState(token);
-    if (farmingState && farmingState.canFarm) {
-      await this.startFarming(token);
-    }
+            await this.checkInDaily(token);
 
-    // Klaim hasil farming jika ada
-    await this.claimFarming(token);
+            const diamond = await this.getDiamondInfo(token);
+            if(diamond.state === 'available') {
+              await this.waitWithCountdown(Math.floor(Math.random() * (21 - 10)) + 10, 'claim Diamonds');
+              await this.claimDiamond(token, diamond.diamondNumber, diamond.settings.totalReward);
+            } else {
+                const nextDiamondTimeStamp = diamond.timings.nextAt;
+                if(nextDiamondTimeStamp) {
+                    const nextDiamondTime = DateTime.fromMillis(
+                        nextDiamondTimeStamp
+                    ).toLocaleString(DateTime.DATETIME_FULL);
+                    this.log(`Next Diamond time: ${nextDiamondTime}`, 'green');
+                    await this.sendTelegramLog(`Next Diamond time: ${nextDiamondTime}`);
 
-    // Ambil informasi diamond dan klaim jika ada
-    const diamondInfo = await this.getDiamondInfo(token);
-    if (diamondInfo && diamondInfo.diamonds.length > 0) {
-      await this.claimDiamond(token, diamondInfo.diamonds[0].number, diamondInfo.totalReward);
-    }
+                    if (i === 0) {
+                        firstAccountFinishTime = nextDiamondTimeStamp;
+                    }
+                }
+            }
 
-    // Ambil task dan mulai serta klaim task
-    const tasks = await this.getTask(token);
-    if (tasks && tasks.length > 0) {
-      for (const task of tasks) {
-        await this.startTask(token, task.id, task.slug);
-        await this.claimTask(token, task.id, task.slug, task.rewardAmount);
+            const farmingState = await this.getFarmingState(token);
+
+            if (farmingState) {
+              if (farmingState.state === "idling") {
+                await this.startFarming(token);
+              } else if (
+                farmingState.state === "farmed" ||
+                farmingState.state === "farming"
+              ) {
+                const finishTimestamp = farmingState.timings.finish;
+                if (finishTimestamp) {
+                  const finishTime = DateTime.fromMillis(
+                    finishTimestamp
+                  ).toLocaleString(DateTime.DATETIME_FULL);
+                  this.log(`Farming completion time: ${finishTime}`, "green");
+                  await this.sendTelegramLog(`Farming completion time: ${finishTime}`);
+
+                //   if (i === 0) {
+                //     firstAccountFinishTime = finishTimestamp;
+                //   }
+
+                  const currentTime = DateTime.now().toMillis();
+                  if (currentTime > finishTimestamp) {
+                    await this.claimFarming(token);
+                    await this.startFarming(token);
+                  }
+                }
+              }
+            }
+
+            const taskState = await this.getTask(token);
+
+            if(taskState) {
+                for (const item of taskState.tasks) {
+                    if(item.status === 'available') {
+                        await this.startTask(token, item.id, item.slug);
+                    } else if(item.status === 'verified') {
+                        await this.claimTask(token, item.id, item.slug, item.rewardAmount);
+                    } else if(item.status === 'in-progress') {
+                        continue;
+                    } else {
+                        this.log(`Verifying task ${item.slug}!`, "green");
+                        await this.sendTelegramLog(`Verifying task ${item.slug}!`);
+                    }
+                }
+            }
+          }
+        }
+      }
+
+      const waitTime = this.calculateWaitTime(firstAccountFinishTime);
+      if (waitTime && waitTime > 0) {
+        await this.waitWithCountdown(Math.floor(waitTime / 1000));
+      } else {
+        this.log("No valid wait time, continuing loop immediately.", "yellow");
+        await this.sendTelegramLog("No valid wait time, continuing loop immediately.");
+        await this.waitWithCountdown(5);
       }
     }
-
-    // Akhir dari proses utama
-    console.log('Selesai!');
   }
 }
 
